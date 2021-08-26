@@ -111,7 +111,6 @@ def user_registration():
         first_name = request.json['first_name']
         last_name = request.json['last_name']
         username = request.json['username']
-        address = request.json['address']
         password = request.json['password']
         email_address = request.json['email_address']
 
