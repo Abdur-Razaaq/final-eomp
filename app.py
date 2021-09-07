@@ -1,11 +1,16 @@
 # IMPORTING ALL THE NEEDED MODULES
-import datetime
 import hmac
 import sqlite3
 from flask import Flask, request, jsonify
-from flask_jwt import JWT, jwt_required, current_identity
 from flask_cors import CORS
 from flask_mail import Mail, Message
+
+
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
 
 
 # INITIATING OBJECT CALLED USER AND ADDING PARAMS
@@ -22,9 +27,7 @@ def create_user_table():
         conn.execute('Create TABLE IF NOT EXISTS user(id INTEGER PRIMARY KEY AUTOINCREMENT,'
                      'first_name TEXT NOT NULL,'
                      'last_name TEXT NOT NULL,'
-                     'username TEXT VARCHAR NULL,'
                      'email_address VARCHAR NOT NULL,'
-                     'address VARCHAR NOT NULL,'
                      'password VARCHAR NOT NULL)')
 
     print('Successfully Created User Table')
@@ -35,6 +38,7 @@ def create_book_table():
     with sqlite3.connect('book_db.db') as conn:
         conn.execute('CREATE TABLE IF NOT EXISTS book(id INTEGER PRIMARY KEY AUTOINCREMENT,'
                      'name TEXT NOT NULL,'
+                     'img_url TEXT NOT NULL,'
                      'description VARCHAR NOT NULL,'
                      'price VARCHAR NOT NULL,'
                      'category TEXT NOT NULL)')
@@ -73,8 +77,7 @@ def identity(payload):
 # INITIALISING FLASK APP AND DEBUGGING
 app = Flask(__name__)
 app.debug = True
-# Setting Auth Token Timeout
-app.config['JWT_EXPIRATION_DELTA'] = datetime.timedelta(seconds=4000)
+
 # USING FLASK MAIL TO SEND EMAILS
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
@@ -83,7 +86,7 @@ app.config['MAIL_PASSWORD'] = 'lottoarj123!'
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 mail = Mail(app)
-app.config['SECRET_KEY'] = 'super-secret'
+
 CORS(app)
 
 create_user_table()
@@ -93,31 +96,49 @@ users = fetch_users()
 username_table = {u.username: u for u in users}
 userid_table = {u.id: u for u in users}
 
-jwt = JWT(app, authenticate, identity)
-
-
-# TOKEN
-@app.route('/protected')
-@jwt_required()
-def protected():
-    return '%s' % current_identity
-
 
 # CREATING APP ROUTE AND FUNCTION FOR USER REGISTRATION
-@app.route('/user-registration/', methods=["POST"])
+@app.route('/user-registration/', methods=["GET", "POST", "PATCH"])
 def user_registration():
     response = {}
+
+    if request.method == "GET":
+        with sqlite3.connect("book_db.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user")
+
+            users = cursor.fetchall()
+
+            response["status_code"] = 200
+            response["data"] = users
+            return response
+
+    if request.method == "PATCH":
+        email = request.json["email"]
+        password = request.json["password"]
+
+        with sqlite3.connect("book_db.db") as conn:
+            conn.row_factory = dict_factory
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user WHERE email=? AND password=?", (email, password))
+
+            users = cursor.fetchone()
+
+        response["status_code"] = 200
+        response["data"] = users
+        return response
+
     if request.method == "POST":
         first_name = request.json['first_name']
         last_name = request.json['last_name']
-        username = request.json['username']
         password = request.json['password']
         email_address = request.json['email_address']
 
         with sqlite3.connect("book_db.db") as conn:
             cursor = conn.cursor()
-            cursor.execute(f"INSERT INTO user( first_name, last_name, username, address, password, email_address )"
-                           f"VALUES('{first_name}', '{last_name}', '{username}', '{address}', '{password}', '{email_address}')")
+            cursor.execute(f"INSERT INTO user( first_name, last_name, password, email_address )"
+                           f"VALUES('{first_name}', '{last_name}', '{password}', '{email_address}')")
             conn.commit()
 
             response["message"] = "register success"
@@ -134,20 +155,20 @@ def user_registration():
 
 # FUNCTION TO ADD BOOKS
 @app.route('/add-book/', methods=["POST"])
-@jwt_required()
 def add_book():
     response = {}
 
     if request.method == "POST":
         name = request.form['name']
+        img_url = request.form['img_url']
         description = request.form['description']
         price = request.form['price']
         category = request.form['category']
 
         with sqlite3.connect("book_db.db") as conn:
             cursor = conn.cursor()
-            cursor.execute(f"INSERT INTO book( name, description, price, category )"
-                           f"VALUES('{name}', '{description}', '{price}', '{category}')")
+            cursor.execute(f"INSERT INTO book( name, img_url, description, price, category )"
+                           f"VALUES('{name}', '{img_url}', '{description}', '{price}', '{category}')")
             conn.commit()
 
             response["description"] = "add success"
@@ -158,7 +179,6 @@ def add_book():
 
 # FUNCTION TO DELETE BOOKS
 @app.route('/delete-book/<int:post_id>/', methods=["GET"])
-@jwt_required()
 def delete_book(post_id):
     response = {}
     with sqlite3.connect("book_db.db") as conn:
@@ -207,7 +227,6 @@ def get_post(post_id):
 
 # FUNCTION TO EDIT BOOK ENTRIES
 @app.route('/edit-book/<int:post_id>/', methods=["PUT"])
-@jwt_required()
 def edit_post(post_id):
     response = {}
 
