@@ -47,31 +47,31 @@ def create_book_table():
 
 
 # GETTING USER ID, USERNAME AND PASSWORD FROM USER TABLE
-def fetch_users():
-    with sqlite3.connect('book_db.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM user")
-        users = cursor.fetchall()
-
-        new_data = []
-
-        for data in users:
-            # print(User(data[0], data[3], data[6]))
-            print(data)
-            new_data.append(User(data[0], data[3], data[6]))
-    return new_data
+# def fetch_users():
+#     with sqlite3.connect('book_db.db') as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("SELECT * FROM user")
+#         users = cursor.fetchall()
+#
+#         new_data = []
+#
+#         for data in users:
+#             # print(User(data[0], data[3], data[6]))
+#             print(data)
+#             new_data.append(User(data[0], data[3], data[6]))
+#     return new_data
 
 
 # AUTHENTICATION
-def authenticate(username, password):
-    user = username_table.get(username, None)
-    if user and hmac.compare_digest(user.password.encode('utf-8'), password.encode('utf-8')):
-        return user
+# def authenticate(username, password):
+#     user = username_table.get(username, None)
+#     if user and hmac.compare_digest(user.password.encode('utf-8'), password.encode('utf-8')):
+#         return user
 
-
-def identity(payload):
-    user_id = payload['identity']
-    return userid_table.get(user_id, None)
+#
+# def identity(payload):
+#     user_id = payload['identity']
+#     return userid_table.get(user_id, None)
 
 
 # INITIALISING FLASK APP AND DEBUGGING
@@ -91,10 +91,10 @@ CORS(app)
 
 create_user_table()
 create_book_table()
-users = fetch_users()
+# users = fetch_users()
 
-username_table = {u.username: u for u in users}
-userid_table = {u.id: u for u in users}
+# username_table = {u.username: u for u in users}
+# userid_table = {u.id: u for u in users}
 
 
 # CREATING APP ROUTE AND FUNCTION FOR USER REGISTRATION
@@ -115,13 +115,13 @@ def user_registration():
             return response
 
     if request.method == "PATCH":
-        email = request.json["email"]
+        email_address = request.json["email_address"]
         password = request.json["password"]
 
         with sqlite3.connect("book_db.db") as conn:
             conn.row_factory = dict_factory
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM user WHERE email=? AND password=?", (email, password))
+            cursor.execute("SELECT * FROM user WHERE email_address=? AND password=?", (email_address, password))
 
             users = cursor.fetchone()
 
@@ -144,11 +144,11 @@ def user_registration():
             response["message"] = "register success"
             response["status_code"] = 201
 
-            if response["status_code"] == 201:
-                msg = Message('Success!', sender='lottoarj@gmail.com', recipients=[email_address])
-                msg.body = "Your Registration was Successful!"
-                mail.send(msg)
-                return "Message Sent"
+            # if response["status_code"] == 201:
+            #     msg = Message('Success!', sender='lottoarj@gmail.com', recipients=[email_address])
+            #     msg.body = "Your Registration was Successful!"
+            #     mail.send(msg)
+            #     return "Message Sent"
 
         return response
 
@@ -168,7 +168,7 @@ def add_book():
         with sqlite3.connect("book_db.db") as conn:
             cursor = conn.cursor()
             cursor.execute(f"INSERT INTO book( name, img_url, description, price, category )"
-                           f"VALUES('{name}', '{img_url}', '{description}', '{price}', '{category}')")
+                           f'VALUES("{name}", "{img_url}", "{description}", "{price}", "{category}")')
             conn.commit()
 
             response["description"] = "add success"
@@ -243,6 +243,16 @@ def edit_post(post_id):
                     cursor.execute("UPDATE book SET name =? WHERE id=?", (put_data["name"], post_id))
                     conn.commit()
                     response["message"] = "Name Updated Successfully"
+                    response["status_code"] = 200
+
+            if incoming_data.get("img_url") is not None:
+                put_data["img_url"] = incoming_data.get("img_url")
+
+                with sqlite3.connect("book_db.db") as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE book SET img_url =? WHERE id=?", (put_data["img_url"], post_id))
+                    conn.commit()
+                    response["message"] = "img_url Updated Successfully"
                     response["status_code"] = 200
 
             if incoming_data.get("description") is not None:
