@@ -159,11 +159,11 @@ def add_book():
     response = {}
 
     if request.method == "POST":
-        name = request.form['name']
-        img_url = request.form['img_url']
-        description = request.form['description']
-        price = request.form['price']
-        category = request.form['category']
+        name = request.json['name']
+        img_url = request.json['img_url']
+        description = request.json['description']
+        price = request.json['price']
+        category = request.json['category']
 
         with sqlite3.connect("book_db.db") as conn:
             cursor = conn.cursor()
